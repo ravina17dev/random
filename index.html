@@ -1,1 +1,142 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pink Tulips</title>
+<style>
+:root{color-scheme:dark;--bg:#170b13;--ink:#f6b8d0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
+canvas{display:block;touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+.hint{position:fixed;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom,0px));text-align:center;padding:0 16px;font:15px/1.3 Georgia,"Times New Roman",serif;font-style:italic;color:var(--ink);opacity:.75;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint">PAKYU pre - tunaw na grahams</div>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+let W,H,cols,rows,cw,ch,fs,zb,cc,cr,cg,cb,scale;
+function resize(){
+  const dpr=window.devicePixelRatio||1;W=innerWidth;H=innerHeight;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  fs=Math.max(9,Math.min(15,Math.round(W/68)));
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.font='bold '+fs+'px "Courier New",monospace';ctx.textBaseline='top';
+  cw=ctx.measureText('M').width;ch=fs*1.15;
+  cols=Math.ceil(W/cw);rows=Math.ceil(H/ch);
+  const n=cols*rows;zb=new Float32Array(n);cc=new Uint8Array(n);cr=new Uint8Array(n);cg=new Uint8Array(n);cb=new Uint8Array(n);
+  scale=Math.min(H/8.4,W/8.2);
+}
+addEventListener('resize',resize);resize();
+
+const V={
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sc:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l]},
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
+};
+const bez=(s,t)=>{const u=1-t;return[0,1,2].map(i=>u*u*s.p0[i]+2*u*t*s.p1[i]+t*t*s.p2[i])};
+const tan=(s,t)=>V.norm([0,1,2].map(i=>2*(1-t)*(s.p1[i]-s.p0[i])+2*t*(s.p2[i]-s.p1[i])));
+const rnd=i=>{const x=Math.sin(i*12.9898+4.1)*43758.5453;return x-Math.floor(x)};
+
+const PINKS=[[255,228,236],[255,200,217],[255,168,197],[255,133,176],[249,95,155],[232,67,138],[209,44,120],[247,161,196],[255,179,207],[240,110,170],[255,214,226],[222,80,145],[255,150,190]];
+const LEAF=[[120,190,140],[96,170,124]];
+const pts=[];
+
+// stems: 8 from the base, 5 branching off them
+const base=[0,-3,0],up=[0,1,0],stems=[];
+for(let i=0;i<15;i++){
+  const a=i/15*Math.PI*2+0.35*Math.sin(i*2.1),out=[Math.cos(a),0,Math.sin(a)];
+  const L=3.4+1.8*rnd(i),r=0.8+1.7*rnd(i+9);
+  stems.push({p0:base,p1:V.add(V.add(base,V.sc(up,L*0.65)),V.sc(out,0.15)),p2:V.add(V.add(base,V.sc(out,r)),V.sc(up,L)),out});
+}
+for(let j=0;j<10;j++){
+  const par=stems[j],s=bez(par,0.4),a=Math.atan2(par.out[2],par.out[0])+(j%2?1:-1)*(0.8+0.5*rnd(j+3));
+  const out=[Math.cos(a),0,Math.sin(a)],r=1+0.9*rnd(j+20),L=1.9+1.2*rnd(j+30);
+  stems.push({p0:s,p1:V.add(s,V.sc(up,L*0.7)),p2:V.add(V.add(s,V.sc(out,r)),V.sc(up,L)),out});
+}
+
+function mix(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t]}
+function head(c,d,R,Hh,col){
+  const t0=Math.abs(d[1])<0.9?[0,1,0]:[1,0,0],u=V.norm(V.cross(d,t0)),v=V.cross(d,u);
+  const deep=V.sc(col,0.74),light=mix(col,[255,255,255],0.4);
+  const rad=t=>R*(0.3+0.7*Math.sin(Math.PI*(0.1+0.75*t)))*(1-0.25*t*t*t);
+  const NT=24,NP=52;
+  for(let i=0;i<=NT;i++){
+    const t=i/NT,e=0.01,dr=rad(Math.min(t+e,1.01))-rad(t);
+    for(let k=0;k<NP;k++){
+      const ph=k/NP*Math.PI*2,rd=V.add(V.sc(u,Math.cos(ph)),V.sc(v,Math.sin(ph)));
+      const h=t*Hh*(1+0.12*t*Math.cos(3*ph)),r=rad(t)*(1+0.08*t*Math.cos(3*ph));
+      const p=V.add(V.add(c,V.sc(d,h)),V.sc(rd,r));
+      const n=V.norm(V.add(V.sc(rd,Hh*e),V.sc(d,-dr)));
+      pts.push({p,n,c:mix(deep,light,Math.min(1,t*1.1+0.1*Math.cos(3*ph)))});
+    }
+  }
+}
+function leaf(s,side){
+  const NT=70,NS=7;
+  for(let i=0;i<=NT;i++){
+    const t=i/NT,c=bez(s,t),d=tan(s,t),sd=V.norm(V.cross(d,up)),w=0.24*Math.sin(Math.PI*Math.min(1,t*1.05));
+    const n=V.norm(V.cross(d,sd));
+    for(let k=0;k<NS;k++){
+      const f=k/(NS-1)*2-1;
+      pts.push({p:V.add(c,V.sc(sd,f*w*side)),n,c:mix(LEAF[0],LEAF[1],Math.abs(f))});
+    }
+  }
+}
+stems.forEach((s,i)=>{
+  for(let k=0;k<=90;k++){
+    const t=k/90,p=bez(s,t);
+    for(let m=0;m<3;m++){const a=m*2.09,o=0.035;
+      pts.push({p:[p[0]+Math.cos(a)*o,p[1],p[2]+Math.sin(a)*o],n:[Math.cos(a),0,Math.sin(a)],c:LEAF[i%2]});}
+  }
+  const d=tan(s,1),sz=0.85+0.25*rnd(i+50);
+  head(V.add(s.p2,V.sc(d,-0.05)),d,0.5*sz,1.25*sz,PINKS[(i*5)%PINKS.length]);
+});
+for(let i=0;i<4;i++){
+  const a=i/4*Math.PI*2+0.6,out=[Math.cos(a),0,Math.sin(a)];
+  leaf({p0:V.add(base,[0,0.2,0]),p1:V.add(V.add(base,V.sc(out,1.1)),[0,1.7,0]),p2:V.add(V.add(base,V.sc(out,2.3)),[0,0.9,0])},1);
+}
+
+const RAMP=' .:-=+*#%@',LD=V.norm([-0.35,0.55,0.75]);
+let yaw=0.4,pitch=0.16,drag=null,spin=matchMedia('(prefers-reduced-motion: reduce)').matches?0:0.004;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!drag)return;yaw+=(e.clientX-drag.x)*0.008;pitch=Math.max(-0.8,Math.min(0.8,pitch+(e.clientY-drag.y)*0.006));drag={x:e.clientX,y:e.clientY}});
+['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>drag=null));
+
+function frame(){
+  if(!drag)yaw+=spin;
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),D=12;
+  zb.fill(-1e9);cc.fill(0);
+  for(let i=0;i<pts.length;i++){
+    const q=pts[i],p=q.p,n=q.n;
+    const x1=p[0]*cy+p[2]*sy,z1=-p[0]*sy+p[2]*cy,y1=p[1]*cp-z1*sp,z2=p[1]*sp+z1*cp;
+    const f=D/(D-z2),px=W/2+x1*scale*f,py=H*0.5-y1*scale*f;
+    const col=(px/cw)|0,row=(py/ch)|0;
+    if(col<0||col>=cols||row<0||row>=rows)continue;
+    const idx=row*cols+col;
+    if(z2<=zb[idx])continue;
+    let nx=n[0]*cy+n[2]*sy,nz=-n[0]*sy+n[2]*cy,ny=n[1]*cp-nz*sp,nz2=n[1]*sp+nz*cp;
+    if(nz2<0){nx=-nx;ny=-ny;nz2=-nz2}
+    const dot=Math.max(0,nx*LD[0]+ny*LD[1]+nz2*LD[2]);
+    const b=Math.min(1,0.2+0.8*dot+0.15*Math.pow(dot,12));
+    const ci=Math.max(1,Math.round(b*(RAMP.length-1)));
+    zb[idx]=z2;cc[idx]=ci;
+    const k=0.5+0.5*b;
+    cr[idx]=Math.min(255,q.c[0]*k+20*b);cg[idx]=Math.min(255,q.c[1]*k+10*b);cb[idx]=Math.min(255,q.c[2]*k+14*b);
+  }
+  ctx.clearRect(0,0,W,H);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const i=r*cols+c;if(!cc[i])continue;
+    ctx.fillStyle='rgb('+cr[i]+','+cg[i]+','+cb[i]+')';
+    ctx.fillText(RAMP[cc[i]],c*cw,r*ch);
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
