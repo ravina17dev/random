@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aphrodite — a little starfield</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 30%,#453c91 0%,#252c73 38%,#11153d 72%,#080a20 100%);color:#eee8ff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:22px}
+main{width:min(900px,100%);text-align:center}.eyebrow{letter-spacing:.24em;text-transform:uppercase;color:#c9bfff;font-size:.75rem}h1{font-weight:400;letter-spacing:.12em;margin:.35rem 0 1rem}
+#stage{height:360px;overflow:hidden;border:1px solid #7d72c866;border-radius:18px;background:linear-gradient(160deg,#16194588,#11152e88);box-shadow:0 0 60px #7663d433;display:flex;align-items:center;justify-content:center;position:relative}
+#art{white-space:pre;font:clamp(8px,1.5vw,13px)/1.05 ui-monospace,monospace;color:#f2d8ff;text-shadow:0 0 9px #c79cffaa;transform:translateY(0);transition:transform .15s ease;}
+#art::selection{background:transparent}.petal{position:absolute;pointer-events:none;color:#ffbde8;opacity:.75;animation:fall linear infinite}@keyframes fall{from{transform:translateY(-30px) rotate(0)}to{transform:translateY(390px) rotate(300deg)}}
+#lyrics{min-height:112px;margin:24px auto 12px;max-width:720px;font-size:clamp(1.1rem,3vw,1.7rem);line-height:1.55;color:#fff;text-shadow:0 0 14px #c29bff66}#lyrics .line{opacity:0;transition:opacity .7s}#lyrics .line.show{opacity:1}
+.controls{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:14px}button{background:#b7a1ff;color:#17152e;border:0;border-radius:999px;padding:11px 22px;font-weight:700;cursor:pointer}button.secondary{background:#ffffff18;color:#eee;border:1px solid #ffffff33}input[type=range]{width:min(360px,70vw);accent-color:#c5aaff}.small{font-size:.85rem;color:#c7c1ed;margin-top:10px}
+</style></head><body><main><div class="eyebrow">a tiny animated gift</div><h1>APHRODITE</h1>
+<div id="stage"><pre id="art" aria-label="Animated ASCII star and flower scene"></pre></div>
+<div id="lyrics" aria-live="polite"></div>
+<div class="controls"><button id="start">▶ Start</button><button id="pause" class="secondary">Ⅱ Pause</button><button id="restart" class="secondary">↺ Restart</button></div>
+<div class="controls"><label for="seek">Song progress</label><input id="seek" type="range" min="0" max="100" value="0"><span id="time">0:00</span></div>
+<div class="small">Place your authorized audio file at <code>assets/aphrodite.mp3</code>. Playback begins only after Start is tapped.</div>
+<audio id="song" preload="metadata" src="assets/aphrodite.mp3"></audio>
+<script>
+const art=document.getElementById('art'), song=document.getElementById('song'), lyrics=document.getElementById('lyrics'), seek=document.getElementById('seek'), timeLabel=document.getElementById('time');
+const hairFrames=[
+`          *  .   ✧       .
+       .      .  .  *
+        .-~~~~~~~~~~~~-.
+      .'  ✿  .-~~-.  ✿ '.
+     /    .-(  o  )-.    \
+    |   .-'  \____/  '-.  |
+    |  /  .--.      .--. \
+     \ | (    )    (    ) | /
+      \|  \__/      \__/ |/
+       \____  long hair  ____/
+        \  \~~~~~~~~~~/  /
+         \  \~~~~~~~ /  /
+          \  \~~~~~~/  /
+           \__\_____/__/
+             /  /  \  \   ✿
+            /__/    \__\
+`,
+`        .  ✧      *      .
+          *    .       ✦
+        .-~~~~~~~~~~~~-.
+      .'  ✿  .-~~-.  ✿ '.
+     /    .-(  o  )-.    \
+    |   .-'  \____/  '-.  |
+    |  /  .--.      .--. \
+     \ | (    )    (    ) | /
+      \|  \__/      \__/ |/
+       \____  hair flowing  ___/
+     ~~~\\  \~~~~~~~~~~/  /~~~~
+        ~~~\\  \~~~~~~ /  /~~~
+           ~~~\\  \~~~~/  /~~
+              \__\_____/__/
+             /  /  \  \   ✿
+            /__/    \__\
+`,
+`   ✦       .       *     ✧
+       .       ✧       .
+        .-~~~~~~~~~~~~-.
+      .'  ✿  .-~~-.  ✿ '.
+     /    .-(  o  )-.    \
+    |   .-'  \____/  '-.  |
+    |  /  .--.      .--. \
+     \ | (    )    (    ) | /
+      \|  \__/      \__/ |/
+       \____  wind sweeps  ____/
+   ~~~~~~\\  \~~~~~~~~~~/  /~~~~~~
+       ~~~~~\\  \~~~~~~ /  /~~~~
+          ~~~~\\  \~~~~/  /~~~
+              \__\_____/__/
+             /  /  \  \   ✿
+            /__/    \__\
+`];
+const galaxyFrames=[
+`                 .  *  .
+                  ✧
+`,
+`          .     *   .
+            .  ✧  .
+           ·  ...  ·
+`,
+`        .    *   .    ✧
+          ·:::::·
+       .::  ✦  ::.
+          ·:::::·
+`,
+`      *  .  :::::  .  ✧
+       .:: ::::::: ::.
+     .:::  ·  ✦  · :::.
+       .:: ::::::: ::.
+         ·::::::::·
+`,
+`   .  *  .:::::::::.  ✧
+     .::  .:::::::.  ::.
+   * :::. :::  ✦  ::: .::: *
+     .::  .:::::::.  ::.
+  .  ·:::::::::::::·  .
+       *   .  ✧  .   *
+`,
+` .  *  .  :::::::::::  .  ✧
+   .:::  .:::::::::.  :::.
+ * ::::. :::  ✦  ::: .:::: *
+   .:::  .:::::::::.  :::.
+ .  :::::::::::::::::::  .
+    *  .   ✧   .   *
+       ·:::::::::·
+`];
+function renderArt(){const t=song.currentTime;const base=hairFrames[frame%hairFrames.length];
+// Galaxy grows gradually through the chorus, then gently recedes near the ending.
+let progress=0;if(t>=22&&t<72)progress=Math.min(1,(t-22)/34);else if(t>=72&&t<80)progress=Math.max(0,(80-t)/8);
+const stage=Math.min(galaxyFrames.length-1,Math.floor(progress*(galaxyFrames.length-1)));
+const bloom=progress>0?galaxyFrames[stage]:'';art.textContent=bloom+base;
+art.style.transform=`translateY(${Math.sin(Date.now()/550)*3}px) scale(${1+progress*.05})`;
+art.style.textShadow=progress>0?'0 0 14px #d8a9ff, 0 0 28px #7f83ff':'0 0 9px #c79cffaa';}
+// Only the lyric text supplied by the user is included. Times are approximate; adjust below if desired.
+const lyricLines=[
+{t:0,text:"Oh, woah, you've got me in a daze, yeah"},
+{t:5,text:"No, woah, it's not another phase"},
+{t:10,text:"You gave me one look and now I can't get my mind off of you"},
+{t:18,text:"And it's all because"},
+{t:22,text:"I see the galaxies when I look in your eyes"},
+{t:29,text:"And I can't speak, no I can't speak at all"},
+{t:36,text:"I swear to Zeus, you're Aphrodite in disguise"},
+{t:44,text:"Don't think that you can hide it from me"},
+{t:50,text:"Oh, no, I never thought I'd get this close to someone so divine"},
+{t:59,text:"Oh, I can't breathe, no I can't breathe at all"},
+{t:66,text:"Aphrodite, could you, could you please be mine? Oh"},
+{t:74,text:"Could you please be mine, oh, mine?"}
+];
+function showLyrics(){let active=lyricLines.filter(x=>song.currentTime>=x.t).slice(-2);lyrics.innerHTML=active.map((x,i)=>`<div class="line ${i===active.length-1?'show':''}">${x.text}</div>`).join('');renderArt();}
+let frame=0;setInterval(()=>{frame=(frame+1)%hairFrames.length;renderArt()},420);
+for(let i=0;i<22;i++){let p=document.createElement('span');p.className='petal';p.textContent=['✦','·','✧','❀'][i%4];p.style.left=(Math.random()*100)+'%';p.style.top=(-Math.random()*360)+'px';p.style.animationDuration=(7+Math.random()*10)+'s';p.style.animationDelay=(-Math.random()*15)+'s';p.style.fontSize=(9+Math.random()*12)+'px';document.getElementById('stage').appendChild(p)}
+document.getElementById('start').onclick=()=>song.play();document.getElementById('pause').onclick=()=>song.pause();document.getElementById('restart').onclick=()=>{song.currentTime=0;showLyrics();song.play()};song.addEventListener('timeupdate',()=>{showLyrics();if(song.duration){seek.value=(song.currentTime/song.duration)*100;timeLabel.textContent=`${Math.floor(song.currentTime/60)}:${String(Math.floor(song.currentTime%60)).padStart(2,'0')}`}});seek.addEventListener('input',()=>{if(song.duration)song.currentTime=(seek.value/100)*song.duration});song.addEventListener('ended',()=>{lyrics.innerHTML='<div class="line show">And the stars stay a little longer. ✦</div>'});showLyrics();renderArt();
+</script></main></body></html>
